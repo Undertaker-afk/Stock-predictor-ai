@@ -3711,6 +3711,69 @@ The **Advanced Stock Prediction System** is a cutting-edge AI-powered platform w
                         
                         gr.Markdown("### Ensemble Analysis")
                         min15_ensemble_metrics = gr.JSON(label="Ensemble Metrics")
+            
+            # Multi-Symbol Comparison Tab
+            with gr.TabItem("📊 Multi-Symbol Vergleich"):
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("### 🔄 Vergleiche bis zu 3 Aktien-Symbole")
+                        gr.Markdown("Analysiere und vergleiche mehrere Aktien gleichzeitig, um das Symbol mit dem größten Änderungspotential zu finden.")
+                        
+                        # Symbol inputs
+                        symbol1 = gr.Textbox(label="Symbol 1 (erforderlich)", placeholder="z.B. AAPL", value="AAPL")
+                        symbol2 = gr.Textbox(label="Symbol 2 (optional)", placeholder="z.B. GOOGL", value="")
+                        symbol3 = gr.Textbox(label="Symbol 3 (optional)", placeholder="z.B. TSLA", value="")
+                        
+                        comparison_timeframe = gr.Dropdown(
+                            choices=["1d", "1h", "15m"],
+                            label="Zeitrahmen",
+                            value="1d"
+                        )
+                        
+                        comparison_prediction_days = gr.Slider(
+                            minimum=1,
+                            maximum=30,
+                            value=7,
+                            step=1,
+                            label="Vorhersage-Tage"
+                        )
+                        
+                        comparison_strategy = gr.Dropdown(
+                            choices=["chronos", "technical"],
+                            label="Vorhersage-Strategie",
+                            value="chronos"
+                        )
+                        
+                        compare_btn = gr.Button("🔍 Symbole Vergleichen", variant="primary", size="lg")
+                        
+                        gr.Markdown("""
+                        **Multi-Symbol Vergleichsfeatures:**
+                        - **Gleichzeitige Analyse**: Bis zu 3 Symbole parallel analysieren
+                        - **Änderungspotential-Ranking**: Automatische Bewertung des Gewinnpotentials
+                        - **Risiko-Ertrags-Verhältnis**: Bewertung von Chance vs. Risiko
+                        - **Visuelle Vergleiche**: Direkte Chartvergleiche und Balkendiagramme
+                        - **Composite Score**: Intelligente Bewertung basierend auf mehreren Faktoren
+                        - **Empfehlungen**: Automatische Kauf-/Halt-/Verkaufsempfehlungen
+                        - **Konfidenzintervalle**: Unsicherheitsbereiche für jede Vorhersage
+                        """)
+                    
+                    with gr.Column():
+                        comparison_plot = gr.Plot(label="Vergleichsanalyse & Ranking")
+                
+                with gr.Row():
+                    with gr.Column():
+                        gr.Markdown("### 🏆 Symbol-Ranking")
+                        ranking_results = gr.JSON(label="Ranking nach Änderungspotential")
+                        
+                        gr.Markdown("### 📊 Detaillierte Metriken")
+                        detailed_metrics = gr.JSON(label="Ausführliche Analyseergebnisse")
+                    
+                    with gr.Column():
+                        gr.Markdown("### 💡 Empfehlungen")
+                        recommendations = gr.Markdown(value="", label="Trading-Empfehlungen")
+                        
+                        gr.Markdown("### ⚠️ Risiko-Hinweise")
+                        risk_warnings = gr.Markdown(value="", label="Risiko-Bewertung")
         
         def analyze_stock(symbol, timeframe, prediction_days, lookback_days, strategy,
                          use_ensemble, use_regime_detection, use_stress_testing,
@@ -4167,6 +4230,237 @@ The **Advanced Stock Prediction System** is a cutting-edge AI-powered platform w
                     min15_regime_metrics, min15_stress_results, min15_ensemble_metrics, min15_signals_advanced, min15_historical_json, min15_predicted_json]
         )
         
+        # Multi-symbol comparison analysis
+        def compare_symbols(sym1: str, sym2: str, sym3: str, timeframe: str, prediction_days: int, strategy: str,
+                           ue: bool, urd: bool, ust: bool, rfr: float, mi: str, cw: float, tw: float, sw: float,
+                           rrp: int, usm: bool, smt: str, sww: float, sa: float, uc: bool, us: bool) -> Tuple[Dict, go.Figure, str, str]:
+            """
+            Compare multiple symbols and rank them by change potential.
+            
+            Args:
+                sym1-sym3 (str): Stock symbols to compare
+                timeframe (str): Data timeframe
+                prediction_days (int): Days to predict
+                strategy (str): Prediction strategy
+                ue-us (bool/float): Various analysis parameters
+            
+            Returns:
+                Tuple[Dict, go.Figure, str, str]: Ranking, plot, recommendations, risk warnings
+            """
+            try:
+                # Create ensemble weights
+                ensemble_weights = {
+                    "chronos": cw,
+                    "technical": tw,
+                    "statistical": sw
+                }
+                
+                # Collect symbols
+                symbols = [s.strip().upper() for s in [sym1, sym2, sym3] if s.strip()]
+                
+                if not symbols:
+                    raise ValueError("Mindestens ein Symbol muss angegeben werden")
+                
+                # Perform multi-symbol analysis
+                comparison_results, fig = analyze_multiple_symbols(
+                    symbols=symbols,
+                    timeframe=timeframe,
+                    prediction_days=prediction_days,
+                    strategy=strategy,
+                    use_ensemble=ue,
+                    use_regime_detection=urd,
+                    use_stress_testing=ust,
+                    risk_free_rate=rfr,
+                    ensemble_weights=ensemble_weights,
+                    market_index=mi,
+                    use_covariates=uc,
+                    use_sentiment=us,
+                    random_real_points=rrp,
+                    use_smoothing=usm,
+                    smoothing_type=smt,
+                    smoothing_window=sww,
+                    smoothing_alpha=sa
+                )
+                
+                # Generate recommendations
+                recommendations_text = generate_recommendations(comparison_results)
+                
+                # Generate risk warnings
+                risk_warnings_text = generate_risk_warnings(comparison_results)
+                
+                return comparison_results, fig, recommendations_text, risk_warnings_text
+                
+            except Exception as e:
+                error_message = f"Fehler bei der Multi-Symbol-Analyse: {str(e)}"
+                
+                # Create error figure
+                error_fig = go.Figure()
+                error_fig.add_annotation(
+                    text=error_message,
+                    xref="paper", yref="paper",
+                    x=0.5, y=0.5, showarrow=False,
+                    font=dict(size=16, color="red")
+                )
+                error_fig.update_layout(title="Analyse-Fehler")
+                
+                return {'error': error_message}, error_fig, error_message, "Analyse fehlgeschlagen"
+
+        def generate_recommendations(comparison_results: Dict) -> str:
+            """Generate trading recommendations based on comparison results."""
+            try:
+                if 'error' in comparison_results:
+                    return f"❌ **Fehler:** {comparison_results['error']}"
+                
+                ranking = comparison_results.get('ranking', [])
+                if not ranking:
+                    return "❌ **Keine Daten verfügbar:** Keine gültigen Analyseergebnisse erhalten."
+                
+                recommendations = "## 💡 Trading-Empfehlungen\n\n"
+                
+                # Top performer
+                top_symbol = ranking[0]
+                recommendations += f"### 🥇 **Top-Empfehlung: {top_symbol['symbol']}**\n"
+                recommendations += f"- **Änderungspotential:** {top_symbol['change_percent']:.2f}%\n"
+                recommendations += f"- **Aktueller Preis:** ${top_symbol['current_price']:.2f}\n"
+                recommendations += f"- **Vorhergesagter Preis:** ${top_symbol['predicted_price']:.2f}\n"
+                recommendations += f"- **Max. Gewinn:** {top_symbol['max_gain_percent']:.2f}%\n"
+                recommendations += f"- **Max. Verlust:** {top_symbol['max_loss_percent']:.2f}%\n"
+                recommendations += f"- **Risiko-Ertrags-Verhältnis:** {top_symbol['risk_reward_ratio']:.2f}\n"
+                recommendations += f"- **Empfehlung:** {top_symbol['recommendation']}\n\n"
+                
+                # All symbols ranking
+                recommendations += "### 📊 **Vollständiges Ranking:**\n"
+                for i, symbol_data in enumerate(ranking):
+                    rank_emoji = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
+                    recommendations += f"{rank_emoji} **{symbol_data['symbol']}** - {symbol_data['change_percent']:.2f}% - {symbol_data['recommendation']}\n"
+                
+                recommendations += "\n### 🎯 **Strategische Empfehlungen:**\n"
+                
+                # Strategy based on top performer
+                if top_symbol['change_percent'] > 5:
+                    recommendations += "- 🚀 **Starkes Kaufsignal** beim Top-Symbol\n"
+                    recommendations += "- 💰 Erwägen Sie eine größere Position\n"
+                elif top_symbol['change_percent'] > 0:
+                    recommendations += "- 📈 **Moderates Kaufsignal** beim Top-Symbol\n"
+                    recommendations += "- ⚖️ Balancierte Positionsgröße empfohlen\n"
+                else:
+                    recommendations += "- 🔍 **Vorsichtige Bewertung** - Alle Symbole zeigen negative Trends\n"
+                    recommendations += "- 🛡️ Defensive Strategie oder Warten empfohlen\n"
+                
+                # Diversification advice
+                if len(ranking) > 1:
+                    positive_symbols = [s for s in ranking if s['change_percent'] > 0]
+                    if len(positive_symbols) > 1:
+                        recommendations += f"- 📊 **Diversifikation:** {len(positive_symbols)} Symbole zeigen positive Trends\n"
+                    
+                return recommendations
+                
+            except Exception as e:
+                return f"❌ **Fehler beim Generieren der Empfehlungen:** {str(e)}"
+
+        def generate_risk_warnings(comparison_results: Dict) -> str:
+            """Generate risk warnings based on comparison results."""
+            try:
+                if 'error' in comparison_results:
+                    return f"❌ **Analyse-Fehler:** {comparison_results['error']}"
+                
+                ranking = comparison_results.get('ranking', [])
+                if not ranking:
+                    return "❌ **Keine Risiko-Bewertung möglich:** Keine Analysedaten verfügbar."
+                
+                warnings = "## ⚠️ Risiko-Bewertung\n\n"
+                
+                # Overall risk assessment
+                avg_volatility = np.mean([s.get('volatility', 0) for s in ranking])
+                max_loss = min([s.get('max_loss_percent', 0) for s in ranking])
+                
+                if avg_volatility > 10:
+                    warnings += "🔴 **HOHE VOLATILITÄT ERKANNT**\n"
+                    warnings += f"- Durchschnittliche Volatilität: {avg_volatility:.2f}%\n"
+                    warnings += "- Erwarten Sie große Preisschwankungen\n\n"
+                elif avg_volatility > 5:
+                    warnings += "🟡 **MODERATE VOLATILITÄT**\n"
+                    warnings += f"- Durchschnittliche Volatilität: {avg_volatility:.2f}%\n"
+                    warnings += "- Normale Marktbewegungen erwartet\n\n"
+                else:
+                    warnings += "🟢 **NIEDRIGE VOLATILITÄT**\n"
+                    warnings += f"- Durchschnittliche Volatilität: {avg_volatility:.2f}%\n"
+                    warnings += "- Stabile Marktbedingungen\n\n"
+                
+                # Maximum loss warning
+                if max_loss < -10:
+                    warnings += "🚨 **HOHE VERLUSTRISIKO**\n"
+                    warnings += f"- Maximaler Verlust: {max_loss:.2f}%\n"
+                    warnings += "- Verwenden Sie Stop-Loss-Orders\n"
+                    warnings += "- Begrenzen Sie die Positionsgröße\n\n"
+                
+                # Individual symbol warnings
+                warnings += "### 📋 **Symbol-spezifische Risiken:**\n"
+                for symbol_data in ranking:
+                    symbol = symbol_data['symbol']
+                    risk_level = "🟢 Niedrig"
+                    
+                    if symbol_data.get('volatility', 0) > 15 or symbol_data.get('max_loss_percent', 0) < -15:
+                        risk_level = "🔴 Hoch"
+                    elif symbol_data.get('volatility', 0) > 8 or symbol_data.get('max_loss_percent', 0) < -8:
+                        risk_level = "🟡 Mittel"
+                    
+                    warnings += f"- **{symbol}:** {risk_level} "
+                    if symbol_data.get('confidence', 0) < 0.6:
+                        warnings += "(Niedrige Vorhersagegenauigkeit) "
+                    warnings += f"Max. Verlust: {symbol_data.get('max_loss_percent', 0):.2f}%\n"
+                
+                warnings += "\n### 📖 **Allgemeine Risikohinweise:**\n"
+                warnings += "- 📊 Alle Vorhersagen basieren auf historischen Daten\n"
+                warnings += "- 🔮 Zukünftige Performance ist nicht garantiert\n"
+                warnings += "- 💼 Diversifizieren Sie Ihr Portfolio\n"
+                warnings += "- 🛡️ Investieren Sie nur, was Sie verlieren können\n"
+                warnings += "- 📚 Dies ist keine Finanzberatung\n"
+                
+                return warnings
+                
+            except Exception as e:
+                return f"❌ **Fehler bei der Risiko-Bewertung:** {str(e)}"
+
+        # Multi-symbol comparison button click
+        compare_btn.click(
+            fn=compare_symbols,
+            inputs=[symbol1, symbol2, symbol3, comparison_timeframe, comparison_prediction_days, comparison_strategy,
+                   use_ensemble, use_regime_detection, use_stress_testing, risk_free_rate, market_index,
+                   chronos_weight, technical_weight, statistical_weight,
+                   random_real_points, use_smoothing, smoothing_type, smoothing_window, smoothing_alpha,
+                   use_covariates, use_sentiment],
+            outputs=[ranking_results, comparison_plot, recommendations, risk_warnings]
+        )
+        
+        # Update detailed metrics when ranking changes
+        def update_detailed_metrics(ranking_data):
+            try:
+                if not ranking_data or 'error' in ranking_data:
+                    return ranking_data
+                
+                # Extract detailed metrics from ranking data
+                return {
+                    'analysis_summary': {
+                        'total_symbols': len(ranking_data.get('ranking', [])),
+                        'successful_analyses': ranking_data.get('successful_analyses', 0),
+                        'timeframe': ranking_data.get('analysis_settings', {}).get('timeframe', ''),
+                        'strategy': ranking_data.get('analysis_settings', {}).get('strategy', ''),
+                        'timestamp': ranking_data.get('analysis_settings', {}).get('timestamp', '')
+                    },
+                    'ranking_details': ranking_data.get('ranking', []),
+                    'individual_results': ranking_data.get('individual_results', {}),
+                    'errors': ranking_data.get('errors', {})
+                }
+            except Exception as e:
+                return {'error': f'Fehler beim Aktualisieren der Details: {str(e)}'}
+        
+        ranking_results.change(
+            fn=update_detailed_metrics,
+            inputs=[ranking_results],
+            outputs=[detailed_metrics]
+        )
+
         # Event handlers for symbol search - moved after tab definitions
         def handle_search(query):
             if not query.strip():
@@ -5206,6 +5500,398 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     except Exception as e:
         print(f"Error calculating technical indicators: {str(e)}")
         return df
+
+def analyze_multiple_symbols(symbols: List[str], timeframe: str = "1d", prediction_days: int = 30, 
+                           strategy: str = "chronos", use_ensemble: bool = True, 
+                           use_regime_detection: bool = True, use_stress_testing: bool = True,
+                           risk_free_rate: float = 0.02, ensemble_weights: Dict = None,
+                           market_index: str = "^GSPC", use_covariates: bool = True, 
+                           use_sentiment: bool = True, random_real_points: int = 4,
+                           use_smoothing: bool = True, smoothing_type: str = "exponential", 
+                           smoothing_window: int = 5, smoothing_alpha: float = 0.3) -> Tuple[Dict, go.Figure]:
+    """
+    Analyze and compare multiple stock symbols with predictions and change potential ranking.
+    
+    Args:
+        symbols (List[str]): List of up to 3 stock symbols to compare
+        timeframe (str): Data timeframe ('1d', '1h', '15m')
+        prediction_days (int): Number of days to predict
+        strategy (str): Prediction strategy to use
+        use_ensemble (bool): Whether to use ensemble methods
+        use_regime_detection (bool): Whether to use regime detection
+        use_stress_testing (bool): Whether to perform stress testing
+        risk_free_rate (float): Risk-free rate for calculations
+        ensemble_weights (Dict): Weights for ensemble models
+        market_index (str): Market index for correlation analysis
+        use_covariates (bool): Whether to use covariate data
+        use_sentiment (bool): Whether to use sentiment analysis
+        random_real_points (int): Number of random real points to include
+        use_smoothing (bool): Whether to apply smoothing
+        smoothing_type (str): Type of smoothing to apply
+        smoothing_window (int): Window size for smoothing
+        smoothing_alpha (float): Alpha parameter for smoothing
+    
+    Returns:
+        Tuple[Dict, go.Figure]: Comparison results and visualization plot
+    """
+    try:
+        # Filter out empty symbols and limit to 3
+        valid_symbols = [s.strip().upper() for s in symbols if s.strip()][:3]
+        
+        if not valid_symbols:
+            raise ValueError("Mindestens ein Symbol muss angegeben werden")
+        
+        print(f"Analyzing symbols: {valid_symbols}")
+        
+        results = {}
+        predictions_data = {}
+        errors = {}
+        
+        # Analyze each symbol individually
+        for symbol in valid_symbols:
+            try:
+                print(f"Processing {symbol}...")
+                
+                # Get prediction for this symbol
+                signals, fig = make_prediction_enhanced(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    prediction_days=prediction_days,
+                    strategy=strategy,
+                    use_ensemble=use_ensemble,
+                    use_regime_detection=use_regime_detection,
+                    use_stress_testing=use_stress_testing,
+                    risk_free_rate=risk_free_rate,
+                    ensemble_weights=ensemble_weights,
+                    market_index=market_index,
+                    use_covariates=use_covariates,
+                    use_sentiment=use_sentiment,
+                    random_real_points=random_real_points,
+                    use_smoothing=use_smoothing,
+                    smoothing_type=smoothing_type,
+                    smoothing_window=smoothing_window,
+                    smoothing_alpha=smoothing_alpha
+                )
+                
+                # Extract prediction data
+                prediction = signals.get('prediction', {})
+                historical = signals.get('historical', {})
+                
+                if prediction and 'mean' in prediction:
+                    current_price = historical.get('close', [0])[-1] if historical.get('close') else 0
+                    predicted_prices = prediction.get('mean', [])
+                    
+                    if predicted_prices and current_price > 0:
+                        # Calculate percentage change potential
+                        final_price = predicted_prices[-1]
+                        change_percent = ((final_price - current_price) / current_price) * 100
+                        
+                        # Calculate volatility and risk metrics
+                        price_volatility = np.std(predicted_prices) if len(predicted_prices) > 1 else 0
+                        max_gain = ((max(predicted_prices) - current_price) / current_price) * 100 if predicted_prices else 0
+                        max_loss = ((min(predicted_prices) - current_price) / current_price) * 100 if predicted_prices else 0
+                        
+                        results[symbol] = {
+                            'current_price': current_price,
+                            'predicted_final_price': final_price,
+                            'change_percent': change_percent,
+                            'change_absolute': final_price - current_price,
+                            'max_gain_percent': max_gain,
+                            'max_loss_percent': max_loss,
+                            'volatility': price_volatility,
+                            'prediction_confidence': signals.get('confidence', 0.5),
+                            'overall_signal': signals.get('Overall', 'Hold'),
+                            'risk_reward_ratio': abs(max_gain / max_loss) if max_loss != 0 else float('inf')
+                        }
+                        
+                        predictions_data[symbol] = {
+                            'historical_prices': historical.get('close', []),
+                            'historical_dates': historical.get('dates', []),
+                            'predicted_prices': predicted_prices,
+                            'predicted_dates': prediction.get('dates', []),
+                            'upper_bound': prediction.get('upper_bound', []),
+                            'lower_bound': prediction.get('lower_bound', [])
+                        }
+                    else:
+                        errors[symbol] = "Unvollständige Vorhersagedaten erhalten"
+                else:
+                    errors[symbol] = "Keine Vorhersagedaten verfügbar"
+                    
+            except Exception as e:
+                error_msg = str(e)
+                if "Market is currently closed" in error_msg:
+                    errors[symbol] = f"Markt geschlossen für {timeframe} Zeitrahmen"
+                elif "Insufficient data" in error_msg:
+                    errors[symbol] = "Unzureichende Daten verfügbar"
+                else:
+                    errors[symbol] = f"Fehler: {error_msg}"
+                print(f"Error analyzing {symbol}: {error_msg}")
+        
+        # Create comparison visualization
+        fig = create_comparison_chart(predictions_data, results, errors, timeframe)
+        
+        # Rank symbols by change potential
+        ranking = rank_symbols_by_potential(results)
+        
+        # Create summary results
+        comparison_results = {
+            'symbols_analyzed': valid_symbols,
+            'successful_analyses': len(results),
+            'errors': errors,
+            'ranking': ranking,
+            'individual_results': results,
+            'analysis_settings': {
+                'timeframe': timeframe,
+                'prediction_days': prediction_days,
+                'strategy': strategy,
+                'timestamp': datetime.now().isoformat()
+            }
+        }
+        
+        return comparison_results, fig
+        
+    except Exception as e:
+        error_msg = f"Fehler bei Multi-Symbol-Analyse: {str(e)}"
+        print(error_msg)
+        
+        # Return error visualization
+        fig = go.Figure()
+        fig.add_annotation(
+            text=error_msg,
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="red")
+        )
+        fig.update_layout(title="Fehler bei der Analyse")
+        
+        return {'error': error_msg}, fig
+
+def create_comparison_chart(predictions_data: Dict, results: Dict, errors: Dict, timeframe: str) -> go.Figure:
+    """
+    Create a comparison chart for multiple symbols.
+    
+    Args:
+        predictions_data (Dict): Prediction data for each symbol
+        results (Dict): Analysis results for each symbol
+        errors (Dict): Errors encountered for each symbol
+        timeframe (str): Data timeframe
+    
+    Returns:
+        go.Figure: Plotly figure with comparison chart
+    """
+    try:
+        # Create subplots: main chart + percentage change comparison
+        fig = make_subplots(
+            rows=2, cols=1,
+            row_heights=[0.7, 0.3],
+            subplot_titles=('📊 Preisvergleich & Vorhersagen', '📈 Prozentuale Änderungen'),
+            vertical_spacing=0.1,
+            specs=[[{"secondary_y": False}], [{"secondary_y": False}]]
+        )
+        
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c']  # Blue, Orange, Green
+        
+        symbol_list = list(predictions_data.keys())
+        
+        # Plot historical and predicted data for each symbol
+        for i, (symbol, data) in enumerate(predictions_data.items()):
+            color = colors[i % len(colors)]
+            
+            # Historical data
+            if data['historical_prices'] and data['historical_dates']:
+                fig.add_trace(
+                    go.Scatter(
+                        x=data['historical_dates'],
+                        y=data['historical_prices'],
+                        mode='lines',
+                        name=f'{symbol} Historisch',
+                        line=dict(color=color, width=2),
+                        hovertemplate=f'<b>{symbol}</b><br>Datum: %{{x}}<br>Preis: $%{{y:.2f}}<extra></extra>'
+                    ),
+                    row=1, col=1
+                )
+            
+            # Predicted data
+            if data['predicted_prices'] and data['predicted_dates']:
+                fig.add_trace(
+                    go.Scatter(
+                        x=data['predicted_dates'],
+                        y=data['predicted_prices'],
+                        mode='lines',
+                        name=f'{symbol} Vorhersage',
+                        line=dict(color=color, width=2, dash='dot'),
+                        hovertemplate=f'<b>{symbol}</b><br>Datum: %{{x}}<br>Vorhersage: $%{{y:.2f}}<extra></extra>'
+                    ),
+                    row=1, col=1
+                )
+                
+                # Confidence intervals
+                if data['upper_bound'] and data['lower_bound']:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=data['predicted_dates'] + data['predicted_dates'][::-1],
+                            y=data['upper_bound'] + data['lower_bound'][::-1],
+                            fill='toself',
+                            fillcolor=f'rgba({int(color[1:3], 16)}, {int(color[3:5], 16)}, {int(color[5:7], 16)}, 0.2)',
+                            line=dict(color='rgba(255,255,255,0)'),
+                            hoverinfo="skip",
+                            showlegend=False,
+                            name=f'{symbol} Konfidenzintervall'
+                        ),
+                        row=1, col=1
+                    )
+        
+        # Create percentage change comparison chart
+        if results:
+            symbols = list(results.keys())
+            change_percents = [results[s]['change_percent'] for s in symbols]
+            colors_bar = [colors[i % len(colors)] for i in range(len(symbols))]
+            
+            # Color bars based on positive/negative change
+            bar_colors = ['green' if change > 0 else 'red' for change in change_percents]
+            
+            fig.add_trace(
+                go.Bar(
+                    x=symbols,
+                    y=change_percents,
+                    name='Prozentuale Änderung',
+                    marker_color=bar_colors,
+                    hovertemplate='<b>%{x}</b><br>Änderung: %{y:.2f}%<extra></extra>'
+                ),
+                row=2, col=1
+            )
+        
+        # Update layout
+        fig.update_layout(
+            title=dict(
+                text=f'🔄 Multi-Symbol Vergleichsanalyse ({timeframe.upper()})',
+                x=0.5,
+                font=dict(size=20)
+            ),
+            hovermode='x unified',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            height=800
+        )
+        
+        # Update x-axis labels
+        fig.update_xaxes(title_text="Datum", row=1, col=1)
+        fig.update_xaxes(title_text="Symbol", row=2, col=1)
+        
+        # Update y-axis labels
+        fig.update_yaxes(title_text="Preis ($)", row=1, col=1)
+        fig.update_yaxes(title_text="Änderung (%)", row=2, col=1)
+        
+        # Add error annotations if any
+        if errors:
+            error_text = "⚠️ Fehler: " + ", ".join([f"{k}: {v}" for k, v in errors.items()])
+            fig.add_annotation(
+                text=error_text,
+                xref="paper", yref="paper",
+                x=0.5, y=0.95,
+                showarrow=False,
+                font=dict(size=12, color="red"),
+                bgcolor="rgba(255,255,255,0.8)"
+            )
+        
+        return fig
+        
+    except Exception as e:
+        print(f"Error creating comparison chart: {str(e)}")
+        
+        # Return error chart
+        fig = go.Figure()
+        fig.add_annotation(
+            text=f"Fehler beim Erstellen des Vergleichscharts: {str(e)}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="red")
+        )
+        fig.update_layout(title="Chart-Fehler")
+        return fig
+
+def rank_symbols_by_potential(results: Dict) -> List[Dict]:
+    """
+    Rank symbols by their change potential and create a ranking.
+    
+    Args:
+        results (Dict): Analysis results for each symbol
+    
+    Returns:
+        List[Dict]: Ranked list of symbols with their metrics
+    """
+    try:
+        if not results:
+            return []
+        
+        ranked_symbols = []
+        
+        for symbol, data in results.items():
+            # Calculate a comprehensive score based on multiple factors
+            change_percent = data['change_percent']
+            risk_reward = data.get('risk_reward_ratio', 1)
+            confidence = data.get('prediction_confidence', 0.5)
+            volatility = data.get('volatility', 0)
+            
+            # Normalize volatility (lower is better for stability)
+            volatility_score = max(0, 1 - (volatility / 100))  # Assume 100 is high volatility
+            
+            # Calculate composite score
+            # Positive weight for change, risk-reward ratio, and confidence
+            # Negative weight for excessive volatility
+            composite_score = (
+                abs(change_percent) * 0.4 +  # 40% weight on change magnitude
+                min(risk_reward, 10) * 0.3 +  # 30% weight on risk-reward (capped at 10)
+                confidence * 100 * 0.2 +  # 20% weight on confidence
+                volatility_score * 0.1  # 10% weight on volatility (inverse)
+            )
+            
+            # Determine recommendation
+            if change_percent > 5 and risk_reward > 2:
+                recommendation = "🚀 Starkes Kaufsignal"
+            elif change_percent > 2:
+                recommendation = "📈 Kaufsignal"
+            elif change_percent > -2:
+                recommendation = "⚖️ Halten"
+            elif change_percent > -5:
+                recommendation = "📉 Vorsicht"
+            else:
+                recommendation = "🔻 Risiko hoch"
+            
+            ranked_symbols.append({
+                'symbol': symbol,
+                'rank': 0,  # Will be set after sorting
+                'change_percent': change_percent,
+                'change_absolute': data['change_absolute'],
+                'current_price': data['current_price'],
+                'predicted_price': data['predicted_final_price'],
+                'max_gain_percent': data.get('max_gain_percent', 0),
+                'max_loss_percent': data.get('max_loss_percent', 0),
+                'risk_reward_ratio': risk_reward,
+                'volatility': volatility,
+                'confidence': confidence,
+                'composite_score': composite_score,
+                'recommendation': recommendation,
+                'overall_signal': data.get('overall_signal', 'Hold')
+            })
+        
+        # Sort by composite score (descending)
+        ranked_symbols.sort(key=lambda x: x['composite_score'], reverse=True)
+        
+        # Assign ranks
+        for i, symbol_data in enumerate(ranked_symbols):
+            symbol_data['rank'] = i + 1
+        
+        return ranked_symbols
+        
+    except Exception as e:
+        print(f"Error ranking symbols: {str(e)}")
+        return []
 
 def get_fundamental_data(symbol: str) -> dict:
     """
