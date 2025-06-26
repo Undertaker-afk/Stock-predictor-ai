@@ -3196,11 +3196,12 @@ The **Advanced Stock Prediction System** is a cutting-edge AI-powered platform w
         
         with gr.Row():
             with gr.Column(scale=1):
-                with gr.Group():
+                with gr.Accordion("📋 System Übersicht & Features", open=False):
                     gr.Markdown(description)
             with gr.Column(scale=1):
-                with gr.Group():
+                with gr.Accordion("ℹ️ Model Information & Anleitung", open=False):
                     gr.Markdown(model_info)
+                with gr.Accordion("🤝 Community & Links", open=False):
                     gr.Markdown(join_us)
         
         gr.Markdown("---")  # Add a separator
@@ -5058,7 +5059,7 @@ if __name__ == "__main__":
         demo = create_interface()
         print("Starting Advanced Stock Prediction Analysis with real-time market status updates...")
         print("Market status will update every 15 minutes automatically.")
-        demo.launch(ssr_mode=False, mcp_server=True)
+        demo.launch(ssr_mode=False)
     except KeyboardInterrupt:
         print("\nApplication interrupted by user. Shutting down...")
         cleanup_on_exit()
