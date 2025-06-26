@@ -24,6 +24,111 @@ from dataclasses import dataclass
 from transformers import GenerationConfig
 warnings.filterwarnings('ignore')
 
+# NLP-based Symbol Search Function using Pollinations API
+def search_stock_symbol_with_nlp(query: str) -> Tuple[str, str]:
+    """
+    Search for stock symbols using natural language processing via Pollinations API.
+    
+    Args:
+        query (str): Natural language query describing the company or stock
+        
+    Returns:
+        Tuple[str, str]: (symbol, explanation) or error message
+    """
+    try:
+        # Pollinations OpenAI-compatible endpoint
+        api_url = "https://text.pollinations.ai/openai"
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        # System prompt to only respond with stock symbol
+        system_prompt = "You are a stock symbol expert. Respond ONLY with the stock ticker symbol (e.g., AAPL, GOOGL, TSLA) for the company mentioned. If unsure, respond with 'UNKNOWN'."
+        
+        payload = {
+            "model": "searchgpt",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user", 
+                    "content": f"What is the stock ticker symbol for: {query}"
+                }
+            ],
+            "max_tokens": 10,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(api_url, headers=headers, json=payload, timeout=10)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'choices' in result and len(result['choices']) > 0:
+                symbol = result['choices'][0]['message']['content'].strip().upper()
+                
+                # Clean the symbol (remove any extra text)
+                symbol = re.sub(r'[^A-Z0-9.-]', '', symbol)
+                
+                if symbol and symbol != 'UNKNOWN':
+                    # Verify the symbol exists by trying to fetch basic info
+                    try:
+                        ticker = yf.Ticker(symbol)
+                        info = ticker.info
+                        if info and 'symbol' in info:
+                            company_name = info.get('longName', info.get('shortName', 'Unbekanntes Unternehmen'))
+                            return symbol, f"✅ Symbol gefunden: {symbol} ({company_name})"
+                        else:
+                            return "", f"❌ Symbol '{symbol}' nicht gefunden oder ungültig"
+                    except:
+                        return "", f"❌ Symbol '{symbol}' konnte nicht verifiziert werden"
+                else:
+                    return "", f"❌ Kein gültiges Symbol für '{query}' gefunden"
+            else:
+                return "", "❌ Keine Antwort von der API erhalten"
+        else:
+            return "", f"❌ API Fehler: {response.status_code}"
+            
+    except requests.exceptions.Timeout:
+        return "", "❌ Timeout: API-Anfrage dauerte zu lange"
+    except requests.exceptions.RequestException as e:
+        return "", f"❌ Netzwerk-Fehler: {str(e)}"
+    except Exception as e:
+        return "", f"❌ Unerwarteter Fehler: {str(e)}"
+
+def get_popular_stock_suggestions() -> List[Tuple[str, str]]:
+    """
+    Get a list of popular stock suggestions with their symbols and names.
+    
+    Returns:
+        List[Tuple[str, str]]: List of (symbol, description) tuples
+    """
+    popular_stocks = [
+        ("AAPL", "Apple Inc. - Technologie"),
+        ("GOOGL", "Alphabet Inc. - Internet & Technologie"),
+        ("MSFT", "Microsoft Corp. - Software & Cloud"),
+        ("AMZN", "Amazon.com Inc. - E-Commerce & Cloud"),
+        ("TSLA", "Tesla Inc. - Elektrofahrzeuge"),
+        ("META", "Meta Platforms - Social Media"),
+        ("NVDA", "NVIDIA Corp. - Grafikkarten & KI"),
+        ("NFLX", "Netflix Inc. - Streaming"),
+        ("JPM", "JPMorgan Chase - Banking"),
+        ("JNJ", "Johnson & Johnson - Pharma"),
+        ("V", "Visa Inc. - Finanzdienstleistungen"),
+        ("WMT", "Walmart Inc. - Einzelhandel"),
+        ("PG", "Procter & Gamble - Konsumgüter"),
+        ("UNH", "UnitedHealth Group - Gesundheitswesen"),
+        ("HD", "Home Depot - Baumarkt"),
+        ("BAC", "Bank of America - Banking"),
+        ("ADBE", "Adobe Inc. - Software"),
+        ("DIS", "Walt Disney Co. - Entertainment"),
+        ("CRM", "Salesforce Inc. - Cloud Software"),
+        ("PYPL", "PayPal Holdings - Fintech")
+    ]
+    return popular_stocks
+
 # Additional imports for advanced features
 try:
     from hmmlearn import hmm
@@ -3367,7 +3472,38 @@ The **Advanced Stock Prediction System** is a cutting-edge AI-powered platform w
                     - **Multi-Algorithm Ensemble**: Random Forest, Gradient Boosting, SVR, Neural Networks
                     - **Real-Time Market Status**: Updates every 10 minutes with detailed timing information
                     """)
+
+        # NLP Symbol Search Block
+        with gr.Accordion("🔍 Intelligente Symbol-Suche", open=False):
+            with gr.Column():
+                gr.Markdown("### 🤖 KI-gestützte Aktiensuche")
+                gr.Markdown("Beschreiben Sie ein Unternehmen in natürlicher Sprache und lassen Sie die KI das passende Symbol finden.")
+                
+                with gr.Row():
+                    search_query = gr.Textbox(
+                        label="Suchanfrage", 
+                        placeholder="z.B. 'Apple Computer', 'deutsche Bank', 'Tesla Elektroautos'",
+                        scale=3
+                    )
+                    search_btn = gr.Button("🔍 Suchen", variant="primary", scale=1)
+                
+                search_result = gr.Markdown(value="", visible=False)
+                
+                with gr.Row():
+                    copy_to_daily = gr.Button("📋 → Tägliche Analyse", visible=False, size="sm")
+                    copy_to_hourly = gr.Button("📋 → Stündliche Analyse", visible=False, size="sm") 
+                    copy_to_15min = gr.Button("📋 → 15-Min Analyse", visible=False, size="sm")
+                
+                # Popular stocks suggestions
+                gr.Markdown("### 💡 Beliebte Aktien")
+                popular_stocks = get_popular_stock_suggestions()
+                popular_choices = gr.Radio(
+                    choices=popular_stocks,
+                    label="Oder wählen Sie aus beliebten Aktien:",
+                    type="value"
+                )
         
+
         with gr.Tabs() as tabs:
             # Daily Analysis Tab
             with gr.TabItem("Daily Analysis"):
@@ -4029,6 +4165,55 @@ The **Advanced Stock Prediction System** is a cutting-edge AI-powered platform w
                    random_real_points, use_smoothing, smoothing_type, smoothing_window, smoothing_alpha],
             outputs=[min15_signals, min15_plot, min15_metrics, min15_risk_metrics, min15_sector_metrics,
                     min15_regime_metrics, min15_stress_results, min15_ensemble_metrics, min15_signals_advanced, min15_historical_json, min15_predicted_json]
+        )
+        
+        # Event handlers for symbol search - moved after tab definitions
+        def handle_search(query):
+            if not query.strip():
+                return "", gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+            
+            symbol, message = search_stock_symbol_with_nlp(query)
+            if symbol:
+                return message, gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)
+            else:
+                return message, gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
+        
+        def copy_symbol_to_tab(search_result_text):
+            # Extract symbol from result text
+            if "Symbol gefunden:" in search_result_text:
+                symbol = search_result_text.split("Symbol gefunden: ")[1].split(" ")[0]
+                return symbol
+            return ""
+        
+        search_btn.click(
+            handle_search,
+            inputs=[search_query],
+            outputs=[search_result, copy_to_daily, copy_to_hourly, copy_to_15min]
+        )
+        
+        # Copy functions - now after tab variable definitions
+        copy_to_daily.click(
+            lambda result: copy_symbol_to_tab(result),
+            inputs=[search_result],
+            outputs=[daily_symbol]
+        )
+        
+        copy_to_hourly.click(
+            lambda result: copy_symbol_to_tab(result),
+            inputs=[search_result], 
+            outputs=[hourly_symbol]
+        )
+        
+        copy_to_15min.click(
+            lambda result: copy_symbol_to_tab(result),
+            inputs=[search_result],
+            outputs=[min15_symbol]
+        )
+        
+        popular_choices.change(
+            lambda choice: choice.split(" - ")[0] if choice else "",
+            inputs=[popular_choices],
+            outputs=[daily_symbol]
         )
     
     return demo
