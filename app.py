@@ -58,10 +58,10 @@ def search_stock_symbol_with_nlp(query: str) -> Tuple[str, str]:
                     ticker = yf.Ticker(symbol)
                     info = ticker.info                        
                     if info and 'symbol' in info:
-                            company_name = info.get('longName', info.get('shortName', 'Unbekanntes Unternehmen'))
-                            return symbol, f"✅ Symbol gefunden: {symbol} ({company_name})"
-                        else:
-                            return "", f"❌ Symbol '{symbol}' nicht gefunden oder ungültig"
+                        company_name = info.get('longName', info.get('shortName', 'Unbekanntes Unternehmen'))
+                        return symbol, f"✅ Symbol gefunden: {symbol} ({company_name})"
+                    else:
+                        return "", f"❌ Symbol '{symbol}' nicht gefunden oder ungültig"
                     except:
                         return "", f"❌ Symbol '{symbol}' konnte nicht verifiziert werden"
                 else:
