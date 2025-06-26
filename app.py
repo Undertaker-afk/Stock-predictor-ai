@@ -62,8 +62,8 @@ def search_stock_symbol_with_nlp(query: str) -> Tuple[str, str]:
                         return symbol, f"✅ Symbol gefunden: {symbol} ({company_name})"
                     else:
                         return "", f"❌ Symbol '{symbol}' nicht gefunden oder ungültig"
-                    except:
-                        return "", f"❌ Symbol '{symbol}' konnte nicht verifiziert werden"
+                except:
+                    return "", f"❌ Symbol '{symbol}' konnte nicht verifiziert werden"
                 else:
                     return "", f"❌ Kein gültiges Symbol für '{query}' gefunden"
             else:
