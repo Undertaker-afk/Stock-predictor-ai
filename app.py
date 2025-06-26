@@ -36,48 +36,27 @@ def search_stock_symbol_with_nlp(query: str) -> Tuple[str, str]:
         Tuple[str, str]: (symbol, explanation) or error message
     """
     try:
-        # Pollinations OpenAI-compatible endpoint
-        api_url = "https://text.pollinations.ai/openai"
+        # Pollinations GET endpoint
+        prompt = f"What is the stock ticker symbol for: {query}? Respond ONLY with the stock ticker symbol (e.g., AAPL, GOOGL, TSLA). If unsure, respond with 'UNKNOWN'."
+        api_url = f"https://text.pollinations.ai/{requests.utils.quote(prompt)}"
         
-        headers = {
-            "Content-Type": "application/json"
+        params = {
+            "model": "searchgpt"
         }
         
-        # System prompt to only respond with stock symbol
-        system_prompt = "You are a stock symbol expert. Respond ONLY with the stock ticker symbol (e.g., AAPL, GOOGL, TSLA) for the company mentioned. If unsure, respond with 'UNKNOWN'."
-        
-        payload = {
-            "model": "searchgpt",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_prompt
-                },
-                {
-                    "role": "user", 
-                    "content": f"What is the stock ticker symbol for: {query}"
-                }
-            ],
-            "max_tokens": 10,
-            "temperature": 0.1
-        }
-        
-        response = requests.post(api_url, headers=headers, json=payload, timeout=10)
+        response = requests.get(api_url, params=params, timeout=10)
         
         if response.status_code == 200:
-            result = response.json()
-            if 'choices' in result and len(result['choices']) > 0:
-                symbol = result['choices'][0]['message']['content'].strip().upper()
-                
-                # Clean the symbol (remove any extra text)
-                symbol = re.sub(r'[^A-Z0-9.-]', '', symbol)
-                
-                if symbol and symbol != 'UNKNOWN':
-                    # Verify the symbol exists by trying to fetch basic info
-                    try:
-                        ticker = yf.Ticker(symbol)
-                        info = ticker.info
-                        if info and 'symbol' in info:
+            symbol = response.text.strip().upper()
+            
+            # Clean the symbol (remove any extra text)
+            symbol = re.sub(r'[^A-Z0-9.-]', '', symbol)
+            
+            if symbol and symbol != 'UNKNOWN':
+                # Verify the symbol exists by trying to fetch basic info
+                try:
+                    ticker = yf.Ticker(symbol)
+                    info = ticker.info                        if info and 'symbol' in info:
                             company_name = info.get('longName', info.get('shortName', 'Unbekanntes Unternehmen'))
                             return symbol, f"✅ Symbol gefunden: {symbol} ({company_name})"
                         else:
@@ -103,7 +82,7 @@ def get_popular_stock_suggestions() -> List[Tuple[str, str]]:
     Get a list of popular stock suggestions with their symbols and names.
     
     Returns:
-        List[Tuple[str, str]]: List of (symbol, description) tuples
+        List[Tuple[str, str]]: List of (symbol, description) tuples formatted as "Company Name - Sector"
     """
     popular_stocks = [
         ("AAPL", "Apple Inc. - Technologie"),
@@ -127,7 +106,8 @@ def get_popular_stock_suggestions() -> List[Tuple[str, str]]:
         ("CRM", "Salesforce Inc. - Cloud Software"),
         ("PYPL", "PayPal Holdings - Fintech")
     ]
-    return popular_stocks
+    # Return with company names as display text and symbols as values
+    return [(description, symbol) for symbol, description in popular_stocks]
 
 # Additional imports for advanced features
 try:
@@ -4505,7 +4485,7 @@ The **Advanced Stock Prediction System** is a cutting-edge AI-powered platform w
         )
         
         popular_choices.change(
-            lambda choice: choice.split(" - ")[0] if choice else "",
+            lambda choice: choice if choice else "",
             inputs=[popular_choices],
             outputs=[daily_symbol]
         )
