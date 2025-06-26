@@ -5911,7 +5911,7 @@ if __name__ == "__main__":
         demo = create_interface()
         print("Starting Advanced Stock Prediction Analysis with real-time market status updates...")
         print("Market status will update every 15 minutes automatically.")
-        demo.launch(ssr_mode=False)
+        demo.launch(ssr_mode=False, mcp=True, share=True)
     except KeyboardInterrupt:
         print("\nApplication interrupted by user. Shutting down...")
         cleanup_on_exit()
